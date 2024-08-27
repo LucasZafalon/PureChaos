@@ -218,7 +218,7 @@ for interface in "${interfaces[@]}"; do
         config_file="${config_path}${interface}"
 
         if [ -f "$config_file" ]; then
-            echo -e "[${BLUE}Placa de rede ${interface}{RESET}]\n$"
+            echo -e "[${BLUE}Placa de rede ${interface}${RESET}]\n$"
             cat "$config_file"
             echo -e "\n"
         fi
