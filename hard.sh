@@ -106,7 +106,7 @@ exit 1
 fi
 
 check_dependences
-sleep $TIME3
+sleep $TIME1
 
 main
 
@@ -239,12 +239,14 @@ sleep $TIME2
 
 echo -e "[${GREEN}ifconfig${RESET}] - Interfaces de rede\n"
 echo -e "$IFCONF\n"
+sleep $TIME1
 
 echo -e "[${GREEN}route -n${RESET}] - Rotas\n"
 echo -e "$ROUTE\n"
+sleep $TIME1
 
 echo -e "[${GREEN}Placas de rede${RESET}] - Configurações das placas de rede\n"
-
+sleep $TIME1
 # Identificando as interfaces de rede
 if command -v ifconfig &> /dev/null
 then
@@ -270,10 +272,13 @@ for interface in "${interfaces[@]}"; do
             echo -e "[${BLUE}Placa de rede ${interface}${RESET}]\n$"
             cat "$config_file"
             echo -e "\n"
+        else
+            echo -e "\n${GREEN}Não foi possível localizar as configurações da placa de rede${RESET}[${interface}]\n"
         fi
     done
 done
 
+sleep $TIME1
 echo -e "[${GREEN}arp - a${RESET}] - Dispositivos na mesma rede\n"
 echo -e "$ARP\n"
 
@@ -284,6 +289,7 @@ echo -e "[${GREEN}wf -info${RESET}] - Wildfly\n"
 if command -v wf-info &> /dev/null
 then
     
+    echo -e "O wildfly está instalado"
     echo -e "$WF\n"
 else
     
