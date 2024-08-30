@@ -4,10 +4,11 @@
 ###        Variaveis
 ###########################
 
-VERSION="1.1"
+VERSION="1.2"
 CREATOR="Lucas_Zafalon"
 TIME1=1
 TIME2=2
+TIME3=3
 
 ###########################
 ###        Collor
@@ -31,6 +32,9 @@ show_version() {
 
 main() {
     echo "$(clear)"
+    echo ""
+        echo -e "$(neofetch)"
+    echo ""
     echo -e "${YELLOW}Registros atuais: \n"
     echo -e "Usuário: $(whoami)"
     echo -e "Diretório: $(pwd)"
@@ -43,9 +47,50 @@ main() {
 check_dependences() {
     echo -e "${YELLOW}Verificando dependências...${RESET}"
 
+    # Função para exibir a barra de carregamento
+    progress_bar() {
+        echo -n "["
+        while true; do
+            echo -n "="
+            sleep 0.1
+        done
+    }
+
+    # Verificar se pv está instalado
+    if ! command -v pv &> /dev/null; then
+        if command -v apt-get &> /dev/null; then
+            sudo apt-get install -y pv > /dev/null 2>&1
+        elif command -v yum &> /dev/null; then
+            sudo yum install -y pv > /dev/null 2>&1
+        fi
+    fi
+
+    # Verificar e instalar smartctl
     if ! command -v smartctl &> /dev/null; then
         echo -e "${RED}Smartctl não encontrado. Instalando...${RESET}"
-        sudo apt-get update && sudo apt-get install -y smartmontools
+        progress_bar &
+        PROGRESS_PID=$!
+        if command -v apt-get &> /dev/null; then
+            sudo apt-get update > /dev/null 2>&1 && sudo apt-get install -y smartmontools > /dev/null 2>&1
+        elif command -v yum &> /dev/null; then
+            sudo yum install -y smartmontools > /dev/null 2>&1
+        fi
+        kill $PROGRESS_PID
+        echo -e "]\n"
+    fi
+
+    # Verificar e instalar neofetch
+    if ! command -v neofetch &> /dev/null; then
+        echo -e "${RED}Neofetch não encontrado. Instalando...${RESET}"
+        progress_bar &
+        PROGRESS_PID=$!
+        if command -v apt-get &> /dev/null; then
+            sudo apt-get update > /dev/null 2>&1 && sudo apt-get install -y neofetch > /dev/null 2>&1
+        elif command -v yum &> /dev/null; then
+            sudo yum install -y epel-release > /dev/null 2>&1 && sudo yum install -y neofetch > /dev/null 2>&1
+        fi
+        kill $PROGRESS_PID
+        echo -e "]\n"
     fi
 
     echo -e "${GREEN}Dependências verificadas.${RESET}"
@@ -61,6 +106,8 @@ exit 1
 fi
 
 check_dependences
+sleep $TIME3
+
 main
 
 ################################################################################
@@ -159,14 +206,14 @@ fi
 sleep $TIME2
 echo -e "\n#######################################################\++++++++++++++++++++|${GREEN}Erros de memória - hs_err\n${RESET}"
 
-cd /usr/wildfly/bin 2>/dev/null || exit
+cd /usr/wildfly/bin 2>/dev/null || echo -e "${GREEN}Diretório /usr/wildfly/bin não encontrado"
 hs_err_files=$(ls -lsth | grep "hs_err")
 
 if [[ -n "$hs_err_files" ]]; then
     echo "${REDP}Apresentado possíveis erros de memória:${RESET}"
     echo "$hs_err_files"
 else
-    echo -e "${GREEN}\nNenhum 'hs_err' encontrado.\n${RESET}"
+    echo -e "${GREEN}\nNenhum 'hs_err' encontrado.${RESET}"
 fi
 
 echo -e "\n#######################################################\++++++++++++++++++++|${GREEN}Base Corrompida - Segmentation\n${RESET}"
@@ -182,6 +229,8 @@ for version in 9.6 14; do
         else
             echo -e "${GREEN}\nNenhuma 'segmentation' encontrada\n${RESET}"
         fi
+    else
+        echo -e "${GREEN}Diretório /var/lib/pgsql/${version}/data/pg_log não encontrado${RESET}"
     fi
 done
 
@@ -218,7 +267,7 @@ for interface in "${interfaces[@]}"; do
         config_file="${config_path}${interface}"
 
         if [ -f "$config_file" ]; then
-            echo -e "[${BLUE}Placa de rede ${interface}${RESET}]\n$"
+            echo -e "[${BLUE}Placa de rede ${interface}{RESET}]\n$"
             cat "$config_file"
             echo -e "\n"
         fi
@@ -231,9 +280,17 @@ echo -e "$ARP\n"
 
 sleep $TIME1
 echo -e "[${GREEN}wf -info${RESET}] - Wildfly\n"
-echo -e "$WF\n"
+
+if command -v wf-info &> /dev/null
+then
+    
+    echo -e "O wildfly está instalado"
+    echo -e "$WF\n"
+else
+    
+    echo -e "${GREEN}O wildfly não se encontra instalado${RESET}"
+fi
 
 echo -e "\n"
 
 show_version
-
