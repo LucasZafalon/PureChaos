@@ -267,7 +267,7 @@ for interface in "${interfaces[@]}"; do
         config_file="${config_path}${interface}"
 
         if [ -f "$config_file" ]; then
-            echo -e "[${BLUE}Placa de rede ${interface}{RESET}]\n$"
+            echo -e "[${BLUE}Placa de rede ${interface}${RESET}]\n$"
             cat "$config_file"
             echo -e "\n"
         fi
@@ -284,7 +284,6 @@ echo -e "[${GREEN}wf -info${RESET}] - Wildfly\n"
 if command -v wf-info &> /dev/null
 then
     
-    echo -e "O wildfly está instalado"
     echo -e "$WF\n"
 else
     
