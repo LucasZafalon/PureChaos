@@ -4,11 +4,13 @@
 ###        Variaveis
 ###########################
 
-VERSION="1.2"
+VERSION="1.3"
 CREATOR="Lucas_Zafalon"
 TIME1=1
 TIME2=2
 TIME3=3
+
+TEMPFILE=$(mktemp)
 
 ###########################
 ###        Collor
@@ -101,7 +103,7 @@ check_dependences() {
 ################################################################################
 
 if [ "$(whoami)" != "root" ] ; then
-echo "Rode esse script como usuário root"
+echo -e "${REDP}Rode esse script como usuário root${RESET}"
 exit 1
 fi
 
@@ -109,7 +111,7 @@ check_dependences
 sleep $TIME1
 
 main
-
+{
 ################################################################################
 
 LSCPU=$(lscpu | head -n 14 | tail -n 13)
@@ -138,7 +140,7 @@ ARP=$(arp -v)
 
 ################################################################################
 
-main
+
 
 echo -e "\n###############################\++++++++++${GREEN}REQUISITOS MINIMOS${RESET}++++++++++/#############################\n"
 sleep $TIME1
@@ -191,29 +193,55 @@ sleep $TIME2
 
 echo -e "[${GREEN}smartctl -a /dev/"$DiskName"${RESET}]\n"
 
-result1=$(sudo smartctl -a /dev/"$DiskName" -d cciss,0 2>&1)
+echo "Verificando informações de discos com smartctl..."
 
-if [[ "$?" -ne 0 ]]; then
+# Tentar o primeiro método de verificação com smartctl -x
+sudo -k -S /bin/bash -c 'for disk in $(lsblk -o TYPE,NAME | grep disk | sed "s/  */ /" | cut -d" " -f2); do
+    echo "===== smartctl -x /dev/$disk"
+    result1=$(sudo smartctl -x /dev/"$disk" 2>&1)
     
-    result2=$(sudo smartctl -a /dev/"$DiskName" 2>&1)
+    if [[ "$?" -ne 0 ]]; then
+        echo "Primeira verificação falhou, tentando com parâmetros alternativos..."
+        
+        # Tentar fallback com smartctl -a e cciss,0
+        result2=$(sudo smartctl -a /dev/"$disk" -d cciss,0 2>&1)
+        
+        if [[ "$?" -ne 0 ]]; then
+            echo "Segunda verificação falhou, tentando com smartctl -a sem cciss,0..."
+            result3=$(sudo smartctl -a /dev/"$disk" 2>&1)
+            echo "$result3"
+        else
+            echo "$result2"
+        fi
+    else
+        echo "$result1"
+    fi
+done'
 
-    echo "$result2"
-else
-    
-    echo "$result1"
-fi
 
 sleep $TIME2
 echo -e "\n#######################################################\++++++++++++++++++++|${GREEN}Erros de memória - hs_err\n${RESET}"
 
 cd /usr/wildfly/bin 2>/dev/null || echo -e "${GREEN}Diretório /usr/wildfly/bin não encontrado"
-hs_err_files=$(ls -lsth | grep "hs_err")
+
+# Busca e lista os arquivos hs_err
+hs_err_files=$(find . -iname "hs_err_*" -exec ls -lsth {} + 2>/dev/null)
 
 if [[ -n "$hs_err_files" ]]; then
-    echo "${REDP}Apresentado possíveis erros de memória:${RESET}"
+    echo -e "${REDP}Apresentado possíveis erros de memória:${RESET}"
     echo "$hs_err_files"
 else
     echo -e "${GREEN}\nNenhum 'hs_err' encontrado.${RESET}"
+fi
+
+# Busca e lista os arquivos heapDump
+heap_dump_files=$(find . -iname "heapDump*" -exec ls -lsth {} + 2>/dev/null)
+
+if [[ -n "$heap_dump_files" ]]; then
+    echo -e "${REDP}Apresentado arquivos heapDump encontrados:${RESET}"
+    echo "$heap_dump_files"
+else
+    echo -e "${GREEN}\nNenhum 'heapDump' encontrado.${RESET}"
 fi
 
 echo -e "\n#######################################################\++++++++++++++++++++|${GREEN}Base Corrompida - Segmentation\n${RESET}"
@@ -278,10 +306,32 @@ for interface in "${interfaces[@]}"; do
     done
 done
 
-sleep $TIME1
-echo -e "[${GREEN}arp - a${RESET}] - Dispositivos na mesma rede\n"
-echo -e "$ARP\n"
+echo -e "\n#######################################################\++++++++++++++++++++|${GREEN}Dispositivos na mesma rede\n${RESET}"
+sleep $TIME2
 
+# # Executa o comando arp -v e processa a saída
+# arp -v | while read line; do
+#     # Extrai o endereço IP da linha
+#     ip=$(echo "$line" | awk '{print $1}')
+    
+#     # Pula as linhas que não têm um endereço IP válido
+#     if [[ "$ip" == "Address" || -z "$ip" ]]; then
+#         continue
+#     fi
+    
+#     # Tenta resolver o hostname para o IP usando nmblookup
+#     hostname=$(nmblookup -A "$ip" | awk -F' ' '/<20>/{print $1}')
+    
+#     # Se o hostname não foi encontrado, define como "Desconhecido"
+#     if [ -z "$hostname" ]; then
+#         hostname="Desconhecido"
+#     fi
+    
+#     # Imprime a linha original do arp -v junto com o hostname
+#     echo -e "$line\t$hostname"
+# done
+
+echo -e "\n#######################################################\++++++++++++++++++++|${GREEN}Wildfly info\n${RESET}"
 
 sleep $TIME1
 echo -e "[${GREEN}wf -info${RESET}] - Wildfly\n"
@@ -289,7 +339,6 @@ echo -e "[${GREEN}wf -info${RESET}] - Wildfly\n"
 if command -v wf-info &> /dev/null
 then
     
-    echo -e "O wildfly está instalado"
     echo -e "$WF\n"
 else
     
@@ -298,5 +347,64 @@ fi
 
 echo -e "\n"
 
+read -p "${REDP}Deseja continuar com a verificação avançada?${RESET} (Y/N): " resposta
+
+case "$resposta" in
+    [Yy]* )
+        echo -e "${GREEN}Continuando com a verificação avançada...${RESET}"
+
+echo -e "\n#############################################################################|${REDP}Verificações Avançadas\n${RESET}"
+
+echo -e "\n#######################################################|${RED}Listando dispositivos PCI:\n${RESET}"
+$TIME2
+
+lspci_output=$(lspci)
+echo "$lspci_output"
+
+echo -e "\n#######################################################|${RED}Listando dispositivos USB:\n${RESET}"
+$TIME2
+
+lsusb_output=$(lsusb)
+echo "$lsusb_output"
+
+echo -e "\n#######################################################|${RED}Listando Modulos do Kernel carregados:\n${RESET}"
+$TIME2
+
+lsmod_output=$(lsmod)
+echo "$lsmod_output"
+
+echo -e "\n#######################################################|${RED}Exibindo informações de hardware:\n${RESET}"
+$TIME2
+
+sudo -k -S /bin/bash -c lshw
+
+echo -e "\n#############################################################################|${REDP}Verificação Avançada Finalizada.\n${RESET}"
+$TIME2
+
+    
+    ;;
+    [Nn]* )
+        echo -e "${REDP}Verificação avançada cancelada.${RESET}"
+
+        
+        exit 0
+        ;;
+    * )
+        echo -e "${RED}Opção inválida. Saindo...${RESET}"
+        exit 1
+        ;;
+esac
+
 show_version
 
+
+} 2>&1 | tee "$TEMPFILE"
+
+# Enviar o conteúdo do arquivo temporário para o Termbin
+LINK=$(cat "$TEMPFILE" | nc termbin.com 9999)
+
+# Exibir o link no terminal
+echo "Link para visualização: $LINK"
+
+# Remover o arquivo temporário após o uso
+rm -f "$TEMPFILE"
