@@ -24,3 +24,5 @@ arp -v | while read line; do
     # Imprime a linha original do arp -v junto com o hostname
     echo -e "$line\t$hostname"
 done
+
+echo -e "\nCreator: Lucas_Zafalon\n"
